@@ -27,8 +27,10 @@ module.exports = function(router, database) {
     return database.getUserWithEmail(email)
     .then(user => {
       if (bcrypt.compareSync(password, user.password)) {
+        console.log("passwords matched")
         return user;
       }
+      console.log("passwords did not match")
       return null;
     });
   }
@@ -38,6 +40,7 @@ module.exports = function(router, database) {
     const {email, password} = req.body;
     login(email, password)
       .then(user => {
+        console.log("value is :", user)
         if (!user) {
           res.send({error: "error"});
           return;

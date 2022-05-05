@@ -18,7 +18,7 @@ const pool = new Pool({
  */
 const getUserWithEmail = function(email) {
   return new Promise((resolve, reject) => {
-    pool.query(`SELECT * FROM users WHERE LOWER(email) = LOWER($1)`, [email])
+    pool.query(`SELECT * FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`, [email])
     .then(user => {
       if (!user) {
         return resolve(null);
@@ -39,7 +39,7 @@ exports.getUserWithEmail = getUserWithEmail;
  */
 const getUserWithId = function(id) {
   return new Promise((resolve, reject) => {
-    pool.query(`SELECT * FROM users WHERE id = $1`, [id])
+    pool.query(`SELECT * FROM users WHERE id = $1 LIMIT 1`, [id])
     .then(user => {
       if (!user) {
         return resolve(null);
@@ -93,8 +93,27 @@ exports.addUser = addUser;
  * @return {Promise<[{}]>} A promise to the reservations.
  */
 const getAllReservations = function(guest_id, limit = 10) {
-  return getAllProperties(null, 2);
-}
+  return new Promise((resolve, reject) => {
+    pool.query(`
+    SELECT reservations.*, properties.title, properties.cost_per_night, avg(rating) as average_rating
+    FROM reservations
+    JOIN properties ON reservations.property_id = properties.id
+    JOIN property_reviews ON properties.id = property_reviews.property_id
+    WHERE reservations.guest_id = $1
+    GROUP BY properties.id, reservations.id
+    ORDER BY reservations.start_date
+    LIMIT $2;`, [guest_id, limit])
+    .then(user => {
+      if (!user) {
+        return resolve(null);
+      }
+      resolve(user.rows[0]);
+    })
+    .catch(error => {
+      return reject(error);
+    });
+  });
+};
 exports.getAllReservations = getAllReservations;
 
 /// Properties
@@ -105,13 +124,6 @@ exports.getAllReservations = getAllReservations;
  * @param {*} limit The number of results to return.
  * @return {Promise<[{}]>}  A promise to the properties.
  */
-// const getAllProperties = function(options, limit = 10) {
-//   const limitedProperties = {};
-//   for (let i = 1; i <= limit; i++) {
-//     limitedProperties[i] = properties[i];
-//   }
-//   return Promise.resolve(limitedProperties);
-// }
 
 const getAllProperties = (options, limit = 10) => {
   return pool
